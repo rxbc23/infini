@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinity Tracker: Reading & Watching Progress</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Tailwind Configuration for Dark Theme */
+        :root {
+            --color-primary: #dc2626; /* Red 600 */
+            --color-secondary: #fcd34d; /* Amber 300 */
+            --color-bg-dark: #1f2937; /* Gray 800 */
+            --color-card-dark: #374151; /* Gray 700 */
+        }
+
+        body {
+            background-color: var(--color-bg-dark);
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom scrollbar for aesthetics */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #374151; }
+        ::-webkit-scrollbar-thumb { background: #6b7280; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        
+        .card { 
+            transition: transform 0.2s, box-shadow 0.2s; 
+            position: relative; 
+            background-color: var(--color-card-dark);
+            color: #d1d5db; /* Gray 300 */
+            border-left: 4px solid var(--color-primary); /* Default red accent */
+        }
+        .card:hover { 
+            transform: translateY(-3px); 
+            box-shadow: 0 10px 20px -5px rgba(220, 38, 38, 0.4); 
+        }
+
+        /* Style for the "Currently Reading" ribbon */
+        .ribbon {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            padding: 4px 12px;
+            background: var(--color-secondary);
+            color: #1f2937;
+            font-size: 0.8rem;
+            font-weight: extra-bold;
+            border-radius: 0 8px 0 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            transform: rotate(3deg);
+        }
+        .draft-badge {
+            padding: 2px 8px;
+            color: #fca5a5; /* Red 300 */
+            background-color: #450a0a; /* Red 950 */
+            border-radius: 9999px;
+            margin-left: 8px;
+        }
+        .quick-advance {
+            background-color: var(--color-primary); /* Red 600 */
+            color: white;
+            font-weight: bold;
+            transition: background-color 0.15s;
+        }
+        .quick-advance:hover {
+            background-color: #b91c1c; /* Red 700 */
+        }
+        .btn-confirm {
+            background-color: #10b981; /* Emerald */
+        }
+        .btn-confirm:hover {
+            background-color: #059669; 
+        }
+
+        .recommendation-card {
+            background-color: #374151;
+            border-left: 3px solid #fcd34d; /* Amber accent */
+        }
+        .recommendation-card a {
+            color: #fcd34d;
+            transition: color 0.15s;
+        }
+        .recommendation-card a:hover {
+            color: #fbbf24;
+        }
+    </style>
+    
+    <!-- STEP 4: ADSFREE PUBLISHER CODE PLACEHOLDER (Do not remove this block) -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR-PUBLISHER-ID"
+        crossorigin="anonymous"></script>
+    <!-- END ADSFREE PUBLISHER CODE PLACEHOLDER -->
+</head>
+<body class="min-h-screen font-sans antialiased">
+
+    <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center py-6 border-b border-gray-700">
+            <h1 class="text-4xl font-extrabold text-red-600 tracking-wider uppercase">
+                Infinity Tracker
+            </h1>
+            <p id="user-id-display" class="mt-2 text-sm text-gray-400 truncate">User ID: Loading...</p>
+        </header>
+
+        <!-- Content Addition Form -->
+        <section class="mt-8 p-6 rounded-xl shadow-2xl bg-gray-900 border border-gray-700">
+            <h2 class="text-2xl font-semibold text-red-500 mb-4 flex items-center">
+                <span class="mr-2 text-red-500">➕</span> Add New Content to Track
+            </h2>
+            <form id="addBookForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Content Type Selection -->
+                <div class="col-span-1 md:col-span-3 flex flex-wrap gap-4 mb-2">
+                    <label class="flex items-center text-gray-300">
+                        <input type="radio" name="contentType" value="novel" checked class="form-radio text-red-600 focus:ring-red-500" id="typeNovel">
+                        <span class="ml-2 text-sm sm:text-base">Novel/Manhua/Manhwa (Chapters)</span>
+                    </label>
+                    <label class="flex items-center text-gray-300">
+                        <input type="radio" name="contentType" value="anime" class="form-radio text-red-600 focus:ring-red-500" id="typeAnime">
+                        <span class="ml-2 text-sm sm:text-base">Anime (Episodes)</span>
+                    </label>
+                </div>
+                
+                <input type="text" id="title" placeholder="Title (e.g., Solo Leveling, Bleach)" required class="col-span-1 md:col-span-3 p-3 border border-gray-600 rounded-lg focus:ring-red-500 focus:border-red-500 bg-gray-700 text-gray-100 placeholder-gray-400">
+                
+                <input type="number" id="totalChaptersInput" placeholder="Total Units (Chapters/Episodes)" required class="p-3 border border-gray-600 rounded-lg focus:ring-red-500 focus:border-red-500 bg-gray-700 text-gray-100 placeholder-gray-400">
+                
+                <input type="number" id="chaptersReadInput" placeholder="Units Read (e.g., 5)" value="0" required class="p-3 border border-gray-600 rounded-lg focus:ring-red-500 focus:border-red-500 bg-gray-700 text-gray-100 placeholder-gray-400">
+                
+                <button type="submit" class="col-span-1 md:col-span-3 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition duration-150 font-bold shadow-lg shadow-red-800/50">
+                    START TRACKING
+                </button>
+            </form>
+        </section>
+
+        <!-- Book List and Progress -->
+        <section class="mt-10">
+            <h2 class="text-2xl font-semibold text-red-500 mb-6 flex items-center">
+                <span class="mr-2 text-red-500">🔥</span> Your Progress List
+            </h2>
+            
+            <!-- AD-CONTAINER PLACEHOLDER -->
+            <div class="bg-gray-700 p-4 mb-6 rounded-lg text-center text-gray-400 border border-dashed border-gray-600">
+                <p class="font-semibold mb-2">Advertisement Slot (Stage 4 Placement)</p>
+                <ins class="adsbygoogle"
+                     style="display:block; min-height:100px;"
+                     data-ad-client="ca-pub-YOUR-PUBLISHER-ID"
+                     data-ad-slot="YOUR-AD-SLOT-ID"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+                <script>
+                    (window.adsbygoogle = window.adsbygoogle || []).push({});
+                </script>
+            </div>
+            <!-- END AD-CONTAINER PLACEHOLDER -->
+
+            <div id="booksList" class="space-y-4">
+                <p id="loadingMessage" class="text-center text-gray-500">Loading your titles...</p>
+                <!-- Book cards will be injected here -->
+            </div>
+        </section>
+        
+        <!-- Recommendations Section - NOW DYNAMIC -->
+        <section class="mt-10">
+            <h2 class="text-2xl font-semibold text-red-500 mb-6 flex items-center">
+                <span class="mr-2 text-red-500">🌟</span> Community Recommendations
+            </h2>
+            
+            <!-- New Recommendation Submission Form -->
+            <div class="bg-gray-900 p-6 rounded-xl shadow-2xl border border-gray-700 mb-8">
+                <h3 class="text-xl font-semibold text-gray-100 mb-3">Submit Your Recommendation</h3>
+                <form id="addRecommendationForm" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <input type="text" id="recTitle" placeholder="Title (e.g., Dune)" required class="md:col-span-2 p-3 border border-gray-600 rounded-lg focus:ring-red-500 bg-gray-700 text-gray-100 placeholder-gray-400">
+                    <select id="recType" required class="p-3 border border-gray-600 rounded-lg focus:ring-red-500 bg-gray-700 text-gray-100">
+                        <option value="" disabled selected>Select Type</option>
+                        <option value="Novel">Novel</option>
+                        <option value="Manga">Manga / Manhua / Manhwa</option>
+                        <option value="Anime">Anime</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <input type="url" id="recLink" placeholder="Link (Optional, e.g., to a wiki or store page)" class="p-3 border border-gray-600 rounded-lg focus:ring-red-500 bg-gray-700 text-gray-100 placeholder-gray-400">
+                    <input type="text" id="recReason" placeholder="Why recommend it? (Brief reason)" required class="md:col-span-4 p-3 border border-gray-600 rounded-lg focus:ring-red-500 bg-gray-700 text-gray-100 placeholder-gray-400">
+                    <button type="submit" class="md:col-span-4 bg-red-800 text-white py-2 rounded-lg hover:bg-red-700 transition duration-150 font-bold shadow-md">
+                        Share Recommendation
+                    </button>
+                </form>
+            </div>
+
+            <!-- Recommendations List -->
+            <div id="recommendationsList" class="space-y-4">
+                <p id="recommendationsLoading" class="text-center text-gray-500">Loading community recommendations...</p>
+            </div>
+        </section>
+
+
+        <!-- Chapter Update Modal (Simple) -->
+        <div id="updateModal" class="fixed inset-0 bg-gray-900 bg-opacity-90 hidden items-center justify-center p-4 z-50">
+            <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-sm border border-red-600">
+                <h3 class="text-xl font-bold mb-4 text-red-500">Manual Progress Update</h3>
+                <form id="updateProgressForm" onsubmit="event.preventDefault(); handleUpdateSubmit()">
+                    <input type="hidden" id="modalBookId">
+                    <label for="newChaptersRead" class="block text-sm font-medium text-gray-300 mb-2" id="modalLabel">New Units Read</label>
+                    <input type="number" id="newChaptersRead" required class="w-full p-3 border border-gray-600 rounded-lg focus:ring-red-500 focus:border-red-500 bg-gray-700 text-gray-100 mb-4">
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600 transition">Cancel</button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition">Save Draft</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, updateDoc, deleteDoc, deleteField, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Wrap all logic in an IIFE to safely use 'return' for early exit
+        (async () => {
+            let db;
+            let auth;
+            let userId = null;
+            let app;
+            let lastActiveBookId = null;
+            const loadingMessage = document.getElementById('loadingMessage');
+
+            // =========================================================================
+            // Configuration Variables (Ensures runnable code outside of canvas)
+            // If deploying to Vercel/GitHub, you MUST configure environment variables 
+            // for the Firebase config to be injected, or replace DUMMY_... values.
+            // =========================================================================
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-infinity-tracker-app';
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { 
+                apiKey: 'DUMMY_API_KEY_REPLACE_ME', 
+                authDomain: 'DUMMY_AUTH_DOMAIN_REPLACE_ME', 
+                projectId: 'DUMMY_PROJECT_ID_REPLACE_ME' 
+            };
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            const METADATA_DOC_ID = '_metadata'; 
+            // =========================================================================
+
+            // 1. Initialize Firebase
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                // Set the log level for debugging if needed (remove in production)
+                // setLogLevel('Debug');
+                await authenticate();
+            } catch (e) {
+                console.error("Failed to initialize Firebase:", e);
+                if (loadingMessage) {
+                    loadingMessage.textContent = "ERROR: Failed to initialize Firebase. Check API keys.";
+                }
+                return; // Exit the IIFE if initialization fails
+            }
+
+            // 2. Authentication
+            async function authenticate() {
+                try {
+                    if (initialAuthToken) {
+                        // Use the provided custom token for seamless sign-in
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        // Fallback to anonymous sign-in for users without a token (like on Vercel)
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                    if (loadingMessage) {
+                        loadingMessage.textContent = "ERROR: Authentication failed.";
+                    }
+                }
+            }
+
+            // 3. Firestore References and State
+            function getBooksCollectionRef(uid) {
+                // Private data path: /artifacts/{appId}/users/{userId}/books
+                return collection(db, `artifacts/${appId}/users/${uid}/books`);
+            }
+            
+            function getMetadataDocRef(uid) {
+                return doc(getBooksCollectionRef(uid), METADATA_DOC_ID);
+            }
+            
+            function getRecommendationsCollectionRef() {
+                // Public data path: /artifacts/{appId}/public/data/recommendations
+                return collection(db, `artifacts/${appId}/public/data/recommendations`);
+            }
+            
+            async function setLastActiveBook(bookId) {
+                if (!userId) return;
+                lastActiveBookId = bookId; 
+                try {
+                    await setDoc(getMetadataDocRef(userId), { lastActiveBookId: bookId }, { merge: true });
+                } catch (error) {
+                    console.error("Error setting last active book ID:", error);
+                }
+            }
+
+            // 4. Setup Real-time Listeners
+            function setupRealtimeListener(uid) {
+                const booksRef = getBooksCollectionRef(uid);
+                const metadataRef = getMetadataDocRef(uid);
+
+                // Listener for PERSONAL TRACKING LIST
+                onSnapshot(booksRef, (snapshot) => {
+                    const books = [];
+                    snapshot.forEach(doc => {
+                        if (doc.id !== METADATA_DOC_ID) {
+                            books.push({ id: doc.id, ...doc.data() });
+                        }
+                    });
+                    renderBooks(books, lastActiveBookId);
+                }, (error) => {
+                    console.error("Error setting up books snapshot listener:", error);
+                    if (loadingMessage) {
+                         loadingMessage.textContent = "ERROR: Could not load your progress list.";
+                    }
+                });
+                
+                // Listener for ACTIVE BOOK METADATA
+                onSnapshot(metadataRef, (docSnapshot) => {
+                    if (docSnapshot.exists()) {
+                        const metadata = docSnapshot.data();
+                        lastActiveBookId = metadata.lastActiveBookId || null;
+                    }
+                }, (error) => {
+                    console.error("Error setting up metadata snapshot listener:", error);
+                });
+                
+                // Listener for COMMUNITY RECOMMENDATIONS
+                setupRecommendationsListener(uid);
+            }
+            
+            // Listener for Recommendations
+            function setupRecommendationsListener(uid) {
+                const recRef = getRecommendationsCollectionRef();
+
+                onSnapshot(recRef, (snapshot) => {
+                    const recommendations = [];
+                    snapshot.forEach(doc => {
+                        recommendations.push({ id: doc.id, ...doc.data() });
+                    });
+                    renderRecommendations(recommendations, uid);
+                }, (error) => {
+                    console.error("Error setting up recommendations snapshot listener:", error);
+                    const recLoading = document.getElementById('recommendationsLoading');
+                    if (recLoading) {
+                         recLoading.textContent = "ERROR: Could not load community recommendations.";
+                    }
+                });
+            }
+            
+            // 5. Rendering Logic
+            function getUnitLabels(contentType) {
+                if (contentType === 'anime') {
+                    return { total: 'Episodes', current: 'Episode' };
+                }
+                // Includes 'novel', 'manga', 'manhua', 'manhwa'
+                return { total: 'Chapters', current: 'Chapter' };
+            }
+
+            function renderBooks(books, activeId) {
+                const booksList = document.getElementById('booksList');
+                
+                if (loadingMessage) {
+                    loadingMessage.classList.add('hidden');
+                }
+
+                booksList.innerHTML = '';
+
+                if (books.length === 0) {
+                    booksList.innerHTML = '<p class="text-center text-gray-500 p-8 border border-dashed border-gray-600 rounded-xl">No titles tracked yet. Add one above!</p>';
+                    return;
+                }
+
+                // Sort active book to the top, and then by progress
+                books.sort((a, b) => {
+                    if (a.id === activeId) return -1; 
+                    if (b.id === activeId) return 1;  
+                    
+                    // Use chaptersRead for sorting
+                    const percentA = (a.chaptersRead / a.totalChapters) * 100;
+                    const percentB = (b.chaptersRead / b.totalChapters) * 100;
+                    return percentA - percentB; 
+                });
+
+                books.forEach(book => {
+                    const labels = getUnitLabels(book.contentType);
+                    
+                    // Determine which chapters value to use for display
+                    const displayChaptersRead = book.pendingChaptersRead !== undefined ? book.pendingChaptersRead : book.chaptersRead;
+                    const hasPendingChange = book.pendingChaptersRead !== undefined;
+
+                    const percent = Math.min(100, Math.round((displayChaptersRead / book.totalChapters) * 100));
+                    const isComplete = percent >= 100;
+                    
+                    // Red/Black/White progress color scheme
+                    let progressColor;
+                    if (isComplete) {
+                        progressColor = 'bg-green-500'; 
+                    } else if (percent > 75) {
+                        progressColor = 'bg-red-600';
+                    } else if (percent > 40) {
+                        progressColor = 'bg-red-400';
+                    } else {
+                        progressColor = 'bg-red-200';
+                    }
+
+                    const isCurrentlyReading = book.id === activeId && !isComplete && !hasPendingChange; 
+                    const isDraft = hasPendingChange;
+
+                    const cardBorderColor = isComplete ? 'border-green-500' : (isDraft ? 'border-yellow-400' : 'border-red-600');
+                    
+                    const bookCard = document.createElement('div');
+                    bookCard.className = `card p-6 rounded-xl shadow-lg border-l-4 ${cardBorderColor}`;
+                    
+                    const ribbonHtml = isCurrentlyReading 
+                        ? '<div class="ribbon">Currently Active</div>'
+                        : '';
+
+                    // Build action buttons
+                    let actionButtons;
+
+                    // If there is a pending change, show confirm/edit buttons
+                    if (hasPendingChange) {
+                        actionButtons = `
+                            <button onclick="window.confirmPendingChapters('${book.id}')" class="text-sm px-4 py-2 btn-confirm text-white rounded-full hover:bg-emerald-700 transition font-bold shadow-md shadow-emerald-900/50">
+                                <i class="fas fa-check mr-1"></i> Confirm & Save
+                            </button>
+                            <button onclick="window.openUpdateModal('${book.id}', ${book.pendingChaptersRead}, '${labels.current}')" class="text-sm px-3 py-1 bg-gray-600 text-gray-200 rounded-full hover:bg-gray-500 transition">
+                                <i class="fas fa-edit"></i> Edit Draft
+                            </button>
+                        `;
+                    } else {
+                        // If no pending change, show Quick Advance and Update modal
+                        actionButtons = `
+                            <button onclick="window.quickAdvance('${book.id}', ${book.chaptersRead}, ${book.totalChapters})" class="text-sm px-3 py-2 quick-advance rounded-full shadow-md shadow-red-900/50">
+                                <i class="fas fa-arrow-alt-circle-right mr-1"></i> +1 ${labels.current}
+                            </button>
+                            <button onclick="window.openUpdateModal('${book.id}', ${book.chaptersRead}, '${labels.current}')" class="text-sm px-3 py-2 bg-gray-600 text-gray-200 rounded-full hover:bg-gray-500 transition">
+                                <i class="fas fa-pencil-alt"></i> Manual Update
+                            </button>
+                        `;
+                    }
+                    
+                    // Always show delete button separately
+                    actionButtons += `
+                        <button onclick="window.deleteBook('${book.id}')" class="text-sm px-3 py-2 bg-gray-800 text-red-500 rounded-full hover:bg-gray-700 transition ml-2 border border-red-500/50">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    `;
+
+
+                    bookCard.innerHTML = `
+                        ${ribbonHtml}
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold text-gray-100">${book.title} ${isDraft ? '<span class="draft-badge">DRAFT</span>' : ''}</h3>
+                        </div>
+                        
+                        <p class="text-gray-400 text-sm mb-2">
+                            Total ${labels.total}: ${book.totalChapters}
+                        </p>
+                        <p class="text-gray-200 text-base mb-4 font-medium">
+                            Current ${labels.current}: ${book.chaptersRead}
+                            ${isDraft ? `<span class="text-yellow-400 font-semibold ml-2">(Draft: ${book.pendingChaptersRead})</span>` : ''}
+                        </p>
+
+                        <!-- Progress Bar -->
+                        <div class="w-full bg-gray-600 rounded-full h-2.5 mb-2">
+                            <div class="h-2.5 rounded-full ${progressColor}" style="width: ${percent}%;"></div>
+                        </div>
+                        <div class="text-right text-sm font-bold ${isComplete ? 'text-green-400' : 'text-red-400'}">
+                            ${percent}% Complete
+                        </div>
+                        ${isComplete ? '<p class="mt-2 text-center text-green-400 font-bold">✅ STATUS: COMPLETED! ✅</p>' : ''}
+                        
+                        <div class="mt-4 pt-4 border-t border-gray-600 flex flex-wrap gap-2 justify-end">
+                            ${actionButtons}
+                        </div>
+                    `;
+                    booksList.appendChild(bookCard);
+                });
+            }
+            
+            // Rendering Logic for Recommendations
+            function renderRecommendations(recommendations, currentUserId) {
+                const recList = document.getElementById('recommendationsList');
+                const recLoading = document.getElementById('recommendationsLoading');
+
+                if (recLoading) recLoading.classList.add('hidden');
+                recList.innerHTML = '';
+                
+                if (recommendations.length === 0) {
+                    recList.innerHTML = '<p class="text-center text-gray-500 p-8 border border-dashed border-gray-600 rounded-xl">Be the first to share a recommendation!</p>';
+                    return;
+                }
+
+                recommendations.sort((a, b) => b.createdAt - a.createdAt); // Sort newest first
+
+                recommendations.forEach(rec => {
+                    const isOwner = rec.submittedBy === currentUserId;
+                    const deleteButton = isOwner ? 
+                        `<button onclick="window.deleteRecommendation('${rec.id}')" class="text-sm ml-3 text-red-400 hover:text-red-500 transition"><i class="fas fa-trash"></i> Delete</button>`
+                        : '';
+                    
+                    const linkHtml = rec.link && rec.link.startsWith('http') ? 
+                        `<a href="${rec.link}" target="_blank" class="font-medium text-sm hover:underline text-red-400 ml-3"><i class="fas fa-external-link-alt"></i> Link</a>`
+                        : '';
+                        
+                    const recCard = document.createElement('div');
+                    recCard.className = `recommendation-card p-4 rounded-xl shadow-lg flex justify-between items-start border-l-4 ${isOwner ? 'border-red-600' : 'border-yellow-400'}`;
+                    
+                    recCard.innerHTML = `
+                        <div>
+                            <div class="flex flex-wrap items-center mb-1">
+                                <span class="px-2 py-0.5 text-xs font-semibold rounded bg-gray-700 text-yellow-400 mr-2 mb-1">${rec.type}</span>
+                                <h3 class="font-bold text-lg text-gray-100">${rec.title}</h3>
+                            </div>
+                            <p class="text-sm text-gray-400 mb-2 italic leading-relaxed">"${rec.reason}"</p>
+                            <div class="flex flex-wrap items-center text-xs text-gray-500 mt-2">
+                                <span class="mr-3">Shared by: ${rec.submittedBy.substring(0, 8)}...</span>
+                                ${linkHtml}
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end pt-1">
+                            ${deleteButton}
+                        </div>
+                    `;
+                    recList.appendChild(recCard);
+                });
+            }
+            
+            // 6. CRUD Operations
+            
+            // A. Add Book
+            document.getElementById('addBookForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!userId) {
+                    console.error("User not authenticated.");
+                    return;
+                }
+
+                const title = document.getElementById('title').value.trim();
+                const totalChapters = parseInt(document.getElementById('totalChaptersInput').value);
+                const chaptersRead = parseInt(document.getElementById('chaptersReadInput').value);
+                const contentType = document.querySelector('input[name="contentType"]:checked').value;
+                
+                if (title === "" || totalChapters <= 0 || chaptersRead < 0 || chaptersRead > totalChapters) {
+                    console.error("Invalid input values.");
+                    return;
+                }
+
+                try {
+                    const booksRef = getBooksCollectionRef(userId);
+                    const newDocRef = await addDoc(booksRef, {
+                        title: title,
+                        totalChapters: totalChapters, 
+                        chaptersRead: chaptersRead,   
+                        contentType: contentType,     
+                        createdAt: Date.now()
+                    });
+                    
+                    // Automatically set as active if not complete
+                    if (chaptersRead < totalChapters) {
+                        await setLastActiveBook(newDocRef.id);
+                    }
+
+                    document.getElementById('addBookForm').reset();
+                    document.getElementById('typeNovel').checked = true; // Reset radio button
+                } catch (error) {
+                    console.error("Error adding document:", error);
+                }
+            });
+            
+            // B. Add Recommendation
+            document.getElementById('addRecommendationForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (!userId) {
+                    console.error("User not authenticated. Cannot submit recommendation.");
+                    return;
+                }
+
+                const title = document.getElementById('recTitle').value.trim();
+                const type = document.getElementById('recType').value;
+                const link = document.getElementById('recLink').value.trim();
+                const reason = document.getElementById('recReason').value.trim();
+                
+                if (title === "" || type === "" || reason === "") {
+                    console.error("Please fill out all required fields for recommendation.");
+                    return;
+                }
+
+                try {
+                    const recRef = getRecommendationsCollectionRef();
+                    await addDoc(recRef, {
+                        title: title,
+                        type: type, 
+                        link: link,
+                        reason: reason,
+                        submittedBy: userId,
+                        createdAt: Date.now()
+                    });
+                    
+                    document.getElementById('addRecommendationForm').reset();
+                    document.getElementById('recType').value = ''; // Reset dropdown to placeholder
+                } catch (error) {
+                    console.error("Error adding recommendation:", error);
+                }
+            });
+            
+            // C. Delete Recommendation
+            window.deleteRecommendation = async (recId) => {
+                if (!userId) return;
+                
+                try {
+                    const recDocRef = doc(getRecommendationsCollectionRef(), recId);
+                    
+                    // Check ownership before deleting (Security rule verification)
+                    const docSnapshot = await getDoc(recDocRef);
+                    if (docSnapshot.exists() && docSnapshot.data().submittedBy === userId) {
+                         await deleteDoc(recDocRef);
+                         console.log(`Recommendation ${recId} deleted.`);
+                    } else {
+                         console.warn("Attempted to delete a recommendation not owned by user or doc doesn't exist. This action is blocked.");
+                    }
+
+                } catch (error) {
+                    console.error("Error deleting recommendation:", error);
+                }
+            };
+
+            // D. Update Chapters (Saves to DRAFT/Pending)
+            window.handleUpdateSubmit = async () => {
+                const bookId = document.getElementById('modalBookId').value;
+                const newChapters = parseInt(document.getElementById('newChaptersRead').value);
+                closeModal();
+
+                if (!userId || !bookId) return;
+
+                try {
+                    const booksRef = getBooksCollectionRef(userId);
+                    const bookDocRef = doc(booksRef, bookId);
+                    
+                    // Update ONLY the pendingChaptersRead field
+                    await updateDoc(bookDocRef, {
+                        pendingChaptersRead: newChapters 
+                    });
+
+                } catch (error) {
+                    console.error("Error saving pending progress:", error);
+                }
+            };
+
+            // E. Quick Advance (+1 Chapter)
+            window.quickAdvance = async (bookId, currentChapters, totalChapters) => {
+                if (!userId) return;
+                const nextChapter = Math.min(totalChapters, currentChapters + 1);
+                
+                if (nextChapter === currentChapters) {
+                    // Do nothing if already at max
+                    return;
+                }
+
+                try {
+                    const booksRef = getBooksCollectionRef(userId);
+                    const bookDocRef = doc(booksRef, bookId);
+
+                    // Update ONLY the pendingChaptersRead field with the next chapter number
+                    await updateDoc(bookDocRef, {
+                        pendingChaptersRead: nextChapter
+                    });
+                    
+                    console.log(`Draft saved: Advanced ${bookId} to unit ${nextChapter}.`);
+
+                } catch (error) {
+                    console.error("Error saving quick advance draft:", error);
+                }
+            }
+
+
+            // F. Confirm Pending Changes
+            window.confirmPendingChapters = async (bookId) => {
+                if (!userId) return;
+                console.log(`Confirming pending changes for book: ${bookId}`);
+
+                try {
+                    const booksRef = getBooksCollectionRef(userId);
+                    const bookDocRef = doc(booksRef, bookId);
+
+                    // 1. Get the current document to read the pending value
+                    const docSnapshot = await getDoc(bookDocRef);
+                    const bookData = docSnapshot.data();
+                    const confirmedChapters = bookData.pendingChaptersRead;
+
+                    if (confirmedChapters === undefined) {
+                        console.error("No pending changes found to confirm.");
+                        return;
+                    }
+
+                    // 2. Update chaptersRead with the confirmed value and remove pendingChaptersRead
+                    await updateDoc(bookDocRef, {
+                        chaptersRead: confirmedChapters, 
+                        pendingChaptersRead: deleteField() 
+                    });
+                    
+                    // 3. Set this book as the last active one (only if not complete)
+                    if (confirmedChapters < bookData.totalChapters) {
+                        await setLastActiveBook(bookId);
+                    } else {
+                        await setLastActiveBook(null); // Clear active if finished
+                    }
+                    
+                } catch (error) {
+                    console.error("Error confirming pending changes:", error);
+                }
+            };
+
+
+            // G. Delete Book
+            window.deleteBook = async (bookId) => {
+                if (!userId) return;
+                console.warn(`Deleting book: ${bookId}.`);
+                
+                try {
+                    const bookDocRef = doc(getBooksCollectionRef(userId), bookId);
+                    await deleteDoc(bookDocRef);
+                    
+                    if (bookId === lastActiveBookId) {
+                        await setLastActiveBook(null);
+                    }
+                } catch (error) {
+                    console.error("Error deleting document:", error);
+                }
+            };
+
+            // 7. Modal Control
+            const updateModal = document.getElementById('updateModal');
+            const newChaptersReadInput = document.getElementById('newChaptersRead'); 
+            const modalLabel = document.getElementById('modalLabel');
+            
+            window.openUpdateModal = async (bookId, currentDisplayChapters, unitLabel) => {
+                document.getElementById('modalBookId').value = bookId;
+                
+                // Set the modal input value to the currently displayed chapter count
+                newChaptersReadInput.value = currentDisplayChapters;
+                modalLabel.textContent = `New ${unitLabel}s Read (Draft Value)`;
+                
+                updateModal.classList.remove('hidden');
+                updateModal.classList.add('flex');
+            };
+
+            window.closeModal = () => {
+                updateModal.classList.add('hidden');
+                updateModal.classList.remove('flex');
+            };
+
+            // 8. Auth State Listener
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
+                    setupRealtimeListener(userId);
+                } else {
+                    console.log("User is signed out.");
+                }
+            });
+
+        })(); // End of IIFE
+        
+    </script>
+    <script>
+        // Placeholder for font awesome for icons
+        (function() {
+          const link = document.createElement('link');
+          link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css';
+          link.rel = 'stylesheet';
+          document.head.appendChild(link);
+        })();
+    </script>
+</body>
+</html>
